@@ -36,6 +36,15 @@ module tb_divider;
         wait(done);
         $display("Test 1: 15 / 3 = Cat: %d, Rest: %d", result[7:0], result[15:8]);
 
+        // Test 1: 15 / 3
+        @(posedge clk);
+        a = 47; b = 34; start = 1;
+        @(posedge clk);
+        start = 0;
+        
+        wait(done);
+        $display("Test 1: 47 / 34 = Cat: %d, Rest: %d", result[7:0], result[15:8]);
+
         #20 $finish;
     end
 endmodule

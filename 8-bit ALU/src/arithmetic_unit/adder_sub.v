@@ -1,7 +1,7 @@
 module adder_sub(
     input wire [7:0] a,
     input wire [7:0] b,
-    input wire mode, //0 pentru add, 1 pentru sub
+    input wire mode, // 0 pentru add, 1 pentru sub
     output wire [7:0] sum,
     output wire cout
 );
@@ -9,9 +9,9 @@ module adder_sub(
     wire [7:0] b_xor;
     wire [8:0] carry;
 
-    assign carry[0] = mode; //adauga 1 la inceput (necesar conform C2)
+    assign carry[0] = mode; // adauga 1 la inceput pt C2
 
-    assign b_xor = b ^ {8{mode}}; //in cazul in care avem scadere, inversam bitii lui b
+    assign b_xor = b ^ {8{mode}}; // la scadere, inversam bitii lui b
 
     genvar i;
     generate 
@@ -28,4 +28,15 @@ module adder_sub(
 
     assign cout = carry[8];
 
+endmodule
+
+module fac (
+    input wire a,
+    input wire b,
+    input wire cin,
+    output wire sum,
+    output wire cout
+);
+    assign sum = a ^ b ^ cin; 
+    assign cout = (a & b) | (cin & a) | (cin & b);
 endmodule

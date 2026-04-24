@@ -1,163 +1,110 @@
 module divider(
-    input wire clk,
-    input wire rst,
-    input wire start,
-    input wire [7:0] a,        // deimpartitul (dividend)
-    input wire [7:0] b,        // impartitorul (divisor)
-    output wire [15:0] result, // result[15:8] = remainder, result[7:0] = quotient
+    input wire clk, rst, start,
+    input wire [7:0] a, b,
+    output wire [15:0] result,
     output wire done
 );
     wire init, sub_enable, shift_enable;
     wire [7:0] adder_out;
     wire [7:0] A_out, M_out, Q_out;
 
-    // Registrul A - restul partial, incepe cu 0
-    // shift la stanga: shift_in vine din MSB-ul lui A (arithmetic shift)
-    register_8 A (
-        .clk      (clk),
-        .rst      (rst | init),   // reset la initializare
-        .load     (sub_enable),   // incarca rezultatul scaderii
-        .d        (adder_out),
-        .shift    (shift_enable),
-        .shift_in (Q_out[7]),     // MSB din Q intra in LSB-ul lui A
-        .q        (A_out)
+    // A si Q folosesc noul registru de SHIFT LA STANGA
+    register_8_left A (
+        .clk(clk), .rst(rst | init), .load(sub_enable),
+        .d(adder_out), .shift(shift_enable), .shift_in(Q_out[7]), .q(A_out)
     );
 
-    // Registrul M - impartitorul, ramane fix
+    // M ramane fix (nu ne intereseaza shiftarea la el)
     register_8 M (
-        .clk      (clk),
-        .rst      (rst),
-        .load     (init),
-        .d        (b),
-        .shift    (1'b0),
-        .shift_in (1'b0),
-        .q        (M_out)
+        .clk(clk), .rst(rst), .load(init),
+        .d(b), .shift(1'b0), .shift_in(1'b0), .q(M_out)
     );
 
-    // Registrul Q - deimpartitul, se transforma treptat in cat
-    // shift la stanga: LSB primeste bitul de cat (0 sau 1)
-    wire q_bit; // bitul de cat generat de FSM
-    register_8 Q (
-        .clk      (clk),
-        .rst      (rst),
-        .load     (init),
-        .d        (a),
-        .shift    (shift_enable),
-        .shift_in (q_bit),        // bitul de cat intra in LSB
-        .q        (Q_out)
+    register_8_left Q (
+        .clk(clk), .rst(rst), .load(init),
+        .d(a), .shift(shift_enable), .shift_in(q_bit), .q(Q_out)
     );
 
-    // Scadem M din A folosind adder_sub al colegului
-    // mode=1 inseamna scadere
+    wire q_bit;
+
+    // TRUC STRUCTURAL: Pre-shiftam combinational A-ul pentru adunator!
+    wire [7:0] A_shifted = {A_out[6:0], Q_out[7]};
+
+    // Scadem M din A_shifted
     adder_sub calc_unit (
-        .a    (A_out),
+        .a    (A_shifted), 
         .b    (M_out),
-        .mode (1'b1),       // intotdeauna scadere pentru restoring division
+        .mode (1'b1), // mereu scadere
         .sum  (adder_out),
-        .cout ()            // nu ne trebuie carry
+        .cout ()
     );
 
-    // FSM-ul care coordoneaza toti pasii
     FSM_divider control_unit (
-        .clk          (clk),
-        .rst          (rst),
-        .start        (start),
-        .a_msb        (A_out[7]),  // semnul lui A dupa scadere
-        .init         (init),
-        .sub_enable   (sub_enable),
-        .shift_enable (shift_enable),
-        .q_bit        (q_bit),
-        .done         (done)
+        .clk(clk), .rst(rst), .start(start),
+        .a_msb(adder_out[7]), // ATENTIE: Verificam semnul DUPA scadere!
+        .init(init), .sub_enable(sub_enable),
+        .shift_enable(shift_enable), .q_bit(q_bit), .done(done)
     );
 
-    assign result = {A_out, Q_out}; // remainder in sus, quotient in jos
-
+    assign result = {A_out, Q_out};
 endmodule
 
-
 module FSM_divider(
-    input wire clk,
-    input wire rst,
-    input wire start,
-    input wire a_msb,        // MSB-ul lui A: 0 = pozitiv, 1 = negativ
-
-    output reg init,         // initializeaza registrele
-    output reg sub_enable,   // permite scrierea rezultatului scaderii in A
-    output reg shift_enable, // permite shiftarea
-    output reg q_bit,        // bitul de cat (0 sau 1)
-    output reg done
+    input wire clk, rst, start,
+    input wire a_msb, // Semnul rezultatului de la adder
+    output reg init, sub_enable, shift_enable, q_bit, done
 );
-    // Stari identice ca la multiplier pentru consistenta
-    parameter IDLE  = 2'b00;
-    parameter CALC  = 2'b01;
-    parameter SHIFT = 2'b10;
-    parameter DONE  = 2'b11;
+    parameter IDLE = 2'b00;
+    parameter CALC = 2'b01; // Nu mai avem nevoie de starea SHIFT separata!
+    parameter DONE = 2'b10;
 
     reg [1:0] state, next_state;
     reg [2:0] count;
 
-    // Registru de stare + contor
     always @(posedge clk or posedge rst) begin
         if (rst) begin
             state <= IDLE;
             count <= 0;
         end else begin
             state <= next_state;
-
-            if (state == IDLE && start)
-                count <= 0;
-            else if (state == SHIFT)
-                count <= count + 1;
+            if (state == IDLE && start) count <= 0;
+            else if (state == CALC) count <= count + 1;
         end
     end
 
-    // Logica combinationala a FSM-ului
     always @(*) begin
-        // valori default (safety)
-        next_state  = state;
-        init        = 0;
-        sub_enable  = 0;
-        shift_enable= 0;
-        q_bit       = 0;
-        done        = 0;
+        // default
+        next_state = state;
+        init = 0; sub_enable = 0; shift_enable = 0; q_bit = 0; done = 0;
 
         case(state)
-
             IDLE: begin
                 if (start) begin
-                    init       = 1'b1;
+                    init = 1'b1;
                     next_state = CALC;
                 end
             end
 
             CALC: begin
-                // a_msb=0 → A-M >= 0 → acceptam scaderea, q_bit=1
-                // a_msb=1 → A-M <  0 → restauram (nu scriem in A), q_bit=0
+                shift_enable = 1'b1; // Q shifteaza mereu 
+                
                 if (a_msb == 1'b0) begin
-                    sub_enable = 1'b1;  // scriem A_minus_M in A
-                    q_bit      = 1'b1;
+                    // A_shifted - M >= 0 (Succes, nu restauram)
+                    sub_enable = 1'b1; // Incarcam in A diferenta (suprascrie shift-ul din A)
+                    q_bit = 1'b1;      // Catul primeste 1
                 end else begin
-                    sub_enable = 1'b0;  // A ramane neschimbat (restaurare automata)
-                    q_bit      = 1'b0;
+                    // A_shifted - M < 0 (Esueaza, trebuie restaurat)
+                    sub_enable = 1'b0; // A isi face shiftarea normala (este perfect echivalent cu A_shifted!)
+                    q_bit = 1'b0;      // Catul primeste 0
                 end
-                next_state = SHIFT;
-            end
 
-            SHIFT: begin
-                shift_enable = 1'b1;
-                if (count == 7)
-                    next_state = DONE;
-                else
-                    next_state = CALC;
+                if (count == 7) next_state = DONE;
             end
 
             DONE: begin
                 done = 1'b1;
-                if (~start)
-                    next_state = IDLE;
+                if (~start) next_state = IDLE;
             end
-
         endcase
     end
-
 endmodule

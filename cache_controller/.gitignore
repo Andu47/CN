@@ -1,0 +1,26 @@
+# Icarus Verilog compiled output
+*.vvp
+*.vcd
+*.lxt
+*.fst
+
+# Simulation output dumps
+sim/waves/
+sim/*.vcd
+
+# VS Code local settings (keep extensions/tasks, ignore personal overrides)
+.vscode/settings.json
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# ModelSim work library
+work/
+transcript
+vsim.wlf
+*.wlf
+
+# Backup files
+*~
+*.bak

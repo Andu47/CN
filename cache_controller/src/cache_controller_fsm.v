@@ -25,7 +25,7 @@ module cache_controller_fsm (
                                         // (de-asserted = CPU is stalled)
 
     // -------------------------------------------------------------------------
-    // Datapath Interface (Members 2 & 3 — Floarea & Popa)
+    // Datapath Interface (Floarea & Popa)
     // -------------------------------------------------------------------------
     input  wire        cache_hit,       // High when tag comparison finds a match
     input  wire [1:0]  hit_way,         // Which of the 4 ways matched (valid only

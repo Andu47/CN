@@ -46,7 +46,7 @@ cache-controller/
 | `WRITE_HIT`  | Tag match on write — mark dirty            |
 | `WRITE_MISS` | No match — allocate block                  |
 | `EVICT`      | Write dirty block back to memory           |
-| `MEM_FETCH`  | Fill cache block from main memory          |
+| `ALLOCATE_FETCH`  | Fill cache block from main memory          |
 
 ---
 

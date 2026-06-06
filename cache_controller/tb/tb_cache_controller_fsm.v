@@ -248,7 +248,7 @@ module tb_cache_controller_fsm;
         if (fail_count == 0)
             $display("  *** ALL TESTS PASSED ***");
         else
-            $display("  *** FAILURES DETECTED — check sim/tb_fsm.vcd ***");
+            $display("  *** FAILURES DETECTED — check sim/tb_cache_controller_fsm.vcd ***");
         $display("============================================================");
 
         $finish;
